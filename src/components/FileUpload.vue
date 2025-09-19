@@ -7,24 +7,26 @@
   >
     <v-icon size="80" color="grey-lighten-1">mdi-image-plus-outline</v-icon>
     <h1 class="text-h4 font-weight-bold mt-6">Start Your Creation</h1>
-    <p class="text-medium-emphasis mt-2">Upload an image to begin editing and see the magic happen.</p>
-    <v-btn 
-      variant="tonal" 
-      color="primary" 
-      class="mt-8" 
-      @click="triggerUpload"
-    >
-      <v-icon left>mdi-camera-plus-outline</v-icon>
-      Select Image
-    </v-btn>
-    <input type="file" ref="fileInput" @change="onFileSelected" accept="image/*" style="display: none;" />
+    <p class="text-medium-emphasis mt-2">Upload images to begin editing and see the magic happen.</p>
+    <div class="mt-8">
+      <v-btn 
+        variant="tonal" 
+        color="primary"
+        size="large"
+        @click="triggerUpload"
+      >
+        <v-icon left>mdi-upload</v-icon>
+        Upload Image
+      </v-btn>
+    </div>
+    <input type="file" ref="fileInput" @change="onFileSelected" accept="image/*" multiple style="display: none;" />
   </v-sheet>
 </template>
 
 <script setup>
 import { ref } from 'vue';
 
-const emit = defineEmits(['file-uploaded']);
+const emit = defineEmits(['file-uploaded', 'batch-files-uploaded']);
 const fileInput = ref(null);
 
 const triggerUpload = () => {
@@ -32,9 +34,13 @@ const triggerUpload = () => {
 };
 
 const onFileSelected = (event) => {
-  const file = event.target.files[0];
-  if (file) {
-    emit('file-uploaded', file);
+  const files = Array.from(event.target.files);
+  if (files.length === 1) {
+    // Single image selected
+    emit('file-uploaded', files[0]);
+  } else if (files.length > 1) {
+    // Multiple images selected
+    emit('batch-files-uploaded', files);
   }
 };
 

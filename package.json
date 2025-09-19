@@ -1,12 +1,24 @@
 {
-  "name": "myapp",
+  "name": "visionforge-image-editor",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "description": "Professional Image Processing and Editing Application",
   "type": "module",
+  "main": "electron/main.js",
+  "homepage": "./",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "electron": "electron .",
+    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && electron .\"",
+    "electron:build": "npm run build && electron-builder",
+    "electron:dist": "npm run build && electron-builder --publish=never",
+    "electron:start": "electron .",
+    "backend": "cd backend && python main.py",
+    "backend:install": "cd backend && pip install -r requirements.txt",
+    "dev:full": "concurrently \"npm run dev\" \"npm run backend\"",
+    "electron:full": "concurrently \"npm run dev\" \"npm run backend\" \"wait-on http://localhost:5173 && electron .\""
   },
   "dependencies": {
     "@mdi/font": "^7.4.47",
@@ -17,7 +29,43 @@
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.4",
+    "concurrently": "^9.2.1",
+    "electron": "^32.3.3",
+    "electron-builder": "^25.1.8",
     "vite": "^5.2.8",
-    "vite-plugin-vuetify": "^2.0.3"
+    "vite-plugin-vuetify": "^2.0.3",
+    "wait-on": "^8.0.5"
+  },
+  "build": {
+    "appId": "com.visionforge.imageeditor",
+    "productName": "VisionForge Image Editor",
+    "icon": "public/appicon.png",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "extraMetadata": {
+      "name": "VisionForge Image Editor",
+      "description": "Professional Image Processing and Editing Application",
+      "version": "1.0.0"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "node_modules/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.graphics-design",
+      "target": "dmg",
+      "icon": "public/appicon.png"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "public/appicon.ico",
+      "sign": false
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "public/appicon.png"
+    }
   }
 }

@@ -22,6 +22,38 @@ const getInitialState = () => ({
   // Edges
   edges: { method: 'None', canny_t1: 50, canny_t2: 100, link_canny_t2: true, sobel_ksize: 3 },
 
+  // Bitwise Operations
+  bitwise: { 
+    operation: 'None', 
+    maskThreshold: 128, 
+    maskUpload: null 
+  },
+
+  // Adaptive Threshold
+  adaptiveThreshold: { 
+    mode: 'Simple', 
+    method: 'mean', 
+    blockSize: 11, 
+    c: 2 
+  },
+
+  // Morphology
+  morphology: { 
+    kernelSize: 3, 
+    iterations: 1,
+    operation: 'erode_dilate'
+  },
+
+  // Color Boost
+  colorBoost: { 
+    saturation: 0, 
+    hueShift: 0, 
+    vibrance: 1, 
+    rgbGains: { r: 1, g: 1, b: 1 }, 
+    contrast: 0, 
+    brightness: 0 
+  },
+
   // Draw
   drawItems: [],
 
@@ -35,23 +67,32 @@ const controlState = reactive(getInitialState());
 export function useControls() {
 
   const resetAll = () => {
-    Object.assign(controlState, getInitialState());
+    const initialState = getInitialState();
+    // Clear all properties first
+    Object.keys(controlState).forEach(key => {
+      delete controlState[key];
+    });
+    // Then assign new values
+    Object.assign(controlState, initialState);
   };
 
   const addDrawItem = (type) => {
     let newItem;
+    const colors = ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF'];
+    const randomColor = colors[Math.floor(Math.random() * colors.length)];
+    
     switch(type) {
         case 'rect':
-            newItem = { type: 'rect', xywh: [10, 10, 50, 50], color: '#FF0000', thickness: 2 };
+            newItem = { type: 'rect', xywh: [10, 10, 50, 50], color: randomColor, thickness: 2 };
             break;
         case 'circle':
-            newItem = { type: 'circle', xyr: [50, 50, 25], color: '#00FF00', thickness: 2 };
+            newItem = { type: 'circle', xyr: [50, 50, 25], color: randomColor, thickness: 2 };
             break;
         case 'line':
-            newItem = { type: 'line', xyxy: [10, 10, 100, 100], color: '#0000FF', thickness: 2 };
+            newItem = { type: 'line', xyxy: [10, 10, 100, 100], color: randomColor, thickness: 2 };
             break;
         case 'text':
-            newItem = { type: 'text', xy: [20, 20], text: 'Hello', scale: 1, color: '#FFFF00', thickness: 2 };
+            newItem = { type: 'text', xy: [20, 20], text: 'Hello', scale: 1, color: randomColor, thickness: 2 };
             break;
     }
     controlState.drawItems.push(newItem);

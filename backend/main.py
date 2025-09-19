@@ -1,0 +1,143 @@
+from fastapi import FastAPI, File, UploadFile, Form, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+import cv2
+import numpy as np
+from PIL import Image
+import io
+import base64
+import json
+from typing import Optional, List, Dict, Any
+import uvicorn
+
+from services.image_processor import ImageProcessor
+from models.control_models import ControlState
+from config import HOST, PORT, RELOAD, ALLOWED_ORIGINS, API_TITLE, API_VERSION, API_DESCRIPTION
+
+app = FastAPI(
+    title=API_TITLE, 
+    version=API_VERSION,
+    description=API_DESCRIPTION
+)
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Initialize image processor
+image_processor = ImageProcessor()
+
+@app.get("/")
+async def root():
+    return {"message": "VisionForge API is running"}
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}
+
+@app.post("/process-image")
+async def process_image(
+    image: UploadFile = File(...),
+    controls: str = Form(...)
+):
+    """
+    Process image with the given controls
+    """
+    try:
+        # Parse controls JSON
+        control_data = json.loads(controls)
+        
+        # Read and decode image
+        image_bytes = await image.read()
+        nparr = np.frombuffer(image_bytes, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        
+        if img is None:
+            raise HTTPException(status_code=400, detail="Invalid image format")
+        
+        # Process image
+        processed_img = image_processor.process_image(img, control_data)
+        
+        # Encode processed image
+        _, buffer = cv2.imencode('.png', processed_img)
+        img_base64 = base64.b64encode(buffer).decode('utf-8')
+        
+        return {
+            "success": True,
+            "processed_image": f"data:image/png;base64,{img_base64}",
+            "original_size": img.shape[:2],
+            "processed_size": processed_img.shape[:2]
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/process-image-base64")
+async def process_image_base64(
+    image_data: str = Form(...),
+    controls: str = Form(...)
+):
+    """
+    Process image from base64 string
+    """
+    try:
+        # Parse controls JSON
+        try:
+            control_data = json.loads(controls)
+        except json.JSONDecodeError as e:
+            raise HTTPException(status_code=400, detail=f"Invalid controls JSON: {str(e)}")
+        
+        # Decode base64 image
+        if image_data.startswith('data:image'):
+            image_data = image_data.split(',')[1]
+        
+        try:
+            image_bytes = base64.b64decode(image_data)
+            nparr = np.frombuffer(image_bytes, np.uint8)
+            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Invalid image data: {str(e)}")
+        
+        if img is None:
+            raise HTTPException(status_code=400, detail="Invalid image format")
+        
+        # Validate image dimensions
+        if img.shape[0] == 0 or img.shape[1] == 0:
+            raise HTTPException(status_code=400, detail="Invalid image dimensions")
+        
+        # Process image
+        try:
+            processed_img = image_processor.process_image(img, control_data)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Image processing error: {str(e)}")
+        
+        # Validate processed image
+        if processed_img is None or processed_img.shape[0] == 0 or processed_img.shape[1] == 0:
+            raise HTTPException(status_code=500, detail="Image processing resulted in invalid image")
+        
+        # Encode processed image
+        try:
+            _, buffer = cv2.imencode('.png', processed_img)
+            img_base64 = base64.b64encode(buffer).decode('utf-8')
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Image encoding error: {str(e)}")
+        
+        return {
+            "success": True,
+            "processed_image": f"data:image/png;base64,{img_base64}",
+            "original_size": img.shape[:2],
+            "processed_size": processed_img.shape[:2]
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
+
+if __name__ == "__main__":
+    uvicorn.run("main:app", host=HOST, port=PORT, reload=RELOAD)
