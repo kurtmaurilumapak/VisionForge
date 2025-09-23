@@ -1,25 +1,39 @@
 
 <template>
-  <div class="pa-4 fill-height d-flex flex-column w-100">
+  <div class="pa-4 fill-height d-flex flex-column w-100 control-panel-wrapper" :class="{ 'controls-disabled': isDisabled }">
+    <v-overlay :model-value="loading" persistent class="control-overlay">
+      <div class="loading-center">
+        <v-progress-circular indeterminate color="primary" size="28"></v-progress-circular>
+        <div class="text-caption mt-2">Applying controls...</div>
+      </div>
+    </v-overlay>
     <h2 class="text-h6 d-flex align-center mb-4">
       Controls
       <v-spacer></v-spacer>
-              <v-btn small variant="tonal" color="primary" @click="handleResetAll">Reset All</v-btn>
+              <v-btn 
+                small 
+                variant="tonal" 
+                color="primary" 
+                :disabled="isDefaultState"
+                @click="handleResetAll"
+              >
+                Reset All {{ isDefaultState ? '(Default)' : '' }}
+              </v-btn>
     </h2>
 
     <div class="control-panels-container flex-grow-1 overlay-scrollbar">
-      <v-expansion-panels v-model="panel" variant="accordion" multiple class="control-panels">
+      <v-expansion-panels v-model="panel" variant="accordion" multiple class="control-panels" :disabled="isDisabled">
         
         <!-- COLOR PANEL -->
         <v-expansion-panel value="color" title="Color" style="background: transparent; border: 1px solid rgba(255, 255, 255, 0.12);">
           <v-expansion-panel-text>
             <div class="control-group">
               <v-label class="text-subtitle-1">Grayscale Amount</v-label>
-                      <v-slider v-model="controlState.grayscaleAmount" :min="0" :max="1" :step="0.01" thumb-label color="primary" class="mt-2"></v-slider>
+                      <v-slider v-model="controlState.grayscaleAmount" :min="0" :max="1" :step="0.01" thumb-label color="primary" class="mt-2" :disabled="isDisabled"></v-slider>
             </div>
             <div class="control-group">
               <v-label class="text-subtitle-1">Color Space</v-label>
-                      <v-select v-model="controlState.colorSpace" :items="['RGB', 'HSV', 'LAB', 'YCrCb']" variant="solo-filled" flat density="compact" class="mt-2"></v-select>
+                      <v-select v-model="controlState.colorSpace" :items="['RGB', 'HSV', 'LAB', 'YCrCb']" variant="solo-filled" flat density="compact" class="mt-2" :disabled="isDisabled"></v-select>
             </div>
           </v-expansion-panel-text>
         </v-expansion-panel>
@@ -29,7 +43,7 @@
           <v-expansion-panel-text>
             <div class="control-group">
               <v-label>Rotate</v-label>
-                      <v-slider v-model="controlState.rotate" :min="-180" :max="180" :step="0.1" thumb-label color="primary" class="mt-2" ></v-slider>
+                      <v-slider v-model="controlState.rotate" :min="-180" :max="180" :step="0.1" thumb-label color="primary" class="mt-2" :disabled="isDisabled"></v-slider>
             </div>
             <div class="control-group">
               <v-label>Translate X</v-label>
@@ -241,9 +255,15 @@
                             <v-btn @click="addDrawItem('circle')" size="small" variant="tonal" >Circle</v-btn>
                             <v-btn @click="addDrawItem('line')" size="small" variant="tonal" >Line</v-btn>
                             <v-btn @click="addDrawItem('text')" size="small" variant="tonal" >Text</v-btn>
+                            <v-btn @click="clearAllShapes" size="small" variant="outlined" color="red" >Clear All</v-btn>
                 </div>
 
-                <v-card v-for="(item, index) in controlState.drawItems" :key="index" class="mb-4" style="background: transparent; border: 1px solid rgba(255, 255, 255, 0.12);">
+                <v-card 
+                  v-for="(item, index) in controlState.drawItems" 
+                  :key="index" 
+                  class="mb-4" 
+                  style="background: transparent; border: 1px solid rgba(255, 255, 255, 0.12);"
+                >
                     <v-card-title class="d-flex align-center text-subtitle-2 pa-2">
                         <span class="text-capitalize">{{ item.type }}</span>
                         <v-spacer></v-spacer>
@@ -251,38 +271,51 @@
                     </v-card-title>
                     <v-card-text class="pa-2">
                         <!-- Rectangle Controls -->
-                        <v-row v-if="item.type === 'rect'" dense>
-                            <v-col><v-text-field v-model.number="item.xywh[0]" label="X" type="number" density="compact" hide-details ></v-text-field></v-col>
-                            <v-col><v-text-field v-model.number="item.xywh[1]" label="Y" type="number" density="compact" hide-details ></v-text-field></v-col>
-                            <v-col><v-text-field v-model.number="item.xywh[2]" label="W" type="number" density="compact" hide-details ></v-text-field></v-col>
-                            <v-col><v-text-field v-model.number="item.xywh[3]" label="H" type="number" density="compact" hide-details ></v-text-field></v-col>
-                        </v-row>
+                        <div v-if="item.type === 'rect'">
+                            <v-row dense>
+                                <v-col><v-text-field v-model.number="item.xywh[0]" label="X" type="number" density="compact" hide-details ></v-text-field></v-col>
+                                <v-col><v-text-field v-model.number="item.xywh[1]" label="Y" type="number" density="compact" hide-details ></v-text-field></v-col>
+                            </v-row>
+                            <v-row dense class="mt-1">
+                                <v-col><v-text-field v-model.number="item.xywh[2]" label="W" type="number" density="compact" hide-details ></v-text-field></v-col>
+                                <v-col><v-text-field v-model.number="item.xywh[3]" label="H" type="number" density="compact" hide-details ></v-text-field></v-col>
+                            </v-row>
+                        </div>
                          <!-- Text Controls -->
                         <div v-if="item.type === 'text'">
-                            <v-text-field v-model="item.text" label="Text" density="compact" hide-details class="mb-2" ></v-text-field>
-                             <v-row dense>
+                            <v-text-field v-model="item.text" label="Text" density="compact" hide-details class="mb-2" @input="emit('user-interaction')" ></v-text-field>
+                            <v-row dense>
                                 <v-col><v-text-field v-model.number="item.xy[0]" label="X" type="number" density="compact" hide-details ></v-text-field></v-col>
                                 <v-col><v-text-field v-model.number="item.xy[1]" label="Y" type="number" density="compact" hide-details ></v-text-field></v-col>
+                            </v-row>
+                            <v-row dense class="mt-1">
                                 <v-col><v-text-field v-model.number="item.scale" label="Scale" type="number" step="0.1" density="compact" hide-details ></v-text-field></v-col>
+                                <v-col></v-col>
                             </v-row>
                         </div>
                          <!-- Color Picker -->
                         <div class="control-group">
-                            <v-label class="text-subtitle-1">Color</v-label>
-                            <v-color-picker 
-                                v-model="item.color" 
-                                mode="hex" 
-                                hide-mode-switch 
-                                hide-inputs
-                                class="mt-2 color-picker-compact" 
-                                width="180"
-                                height="120"
->
-                            </v-color-picker>
+                            <v-label class="text-subtitle-1">Color ({{ item.color }})</v-label>
+                            <div class="d-flex align-center mt-2">
+                                <input 
+                                    type="color" 
+                                    :value="item.color" 
+                                    @input="updateShapeColor(index, $event.target.value)"
+                                    class="color-input"
+                                />
+                                <v-text-field 
+                                    :model-value="item.color" 
+                                    @update:model-value="updateShapeColor(index, $event)"
+                                    label="Hex Color" 
+                                    density="compact" 
+                                    hide-details 
+                                    class="ml-2"
+                                />
+                            </div>
                         </div>
                         
                          <!-- Shared Controls -->
-                        <v-slider v-model="item.thickness" label="Thickness" :min="1" :max="10" thumb-label color="primary" class="mt-2" ></v-slider>
+                        <v-slider v-model="item.thickness" label="Thickness" :min="1" :max="50" thumb-label color="primary" class="mt-2" ></v-slider>
 
                     </v-card-text>
                 </v-card>
@@ -309,10 +342,128 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 import { useControls } from '../composables/useControls.js';
 
-const { controlState, resetAll, addDrawItem, removeDrawItem } = useControls();
+const props = defineProps({
+  disabled: { type: Boolean, default: false },
+  loading: { type: Boolean, default: false },
+  hasImage: { type: Boolean, default: false }
+});
+
+const { controlState, resetAll, addDrawItem: originalAddDrawItem, removeDrawItem: originalRemoveDrawItem } = useControls();
+
+// Wrapper functions that emit user interaction
+const addDrawItem = (type) => {
+  originalAddDrawItem(type);
+  emit('user-interaction');
+};
+
+const removeDrawItem = (index) => {
+  originalRemoveDrawItem(index);
+  emit('user-interaction');
+};
+
+const clearAllShapes = () => {
+  controlState.drawItems = [];
+  emit('user-interaction');
+};
+
+const updateShapeColor = (index, color) => {
+  console.log('Updating shape color:', index, color);
+  if (controlState.drawItems[index]) {
+    controlState.drawItems[index].color = color;
+    console.log('Shape color updated:', controlState.drawItems[index].color);
+    emit('user-interaction');
+  }
+};
+
+
+// Computed property for disabled state
+const isDisabled = computed(() => {
+  const disabled = props.disabled || props.loading;
+  console.log('ControlPanel isDisabled:', disabled, 'props.disabled:', props.disabled, 'props.loading:', props.loading);
+  return disabled;
+});
+
+// Check if controls are in default state
+const isDefaultState = computed(() => {
+  // Check the most commonly changed controls first
+  if (controlState.drawItems.length > 0) {
+    console.log('Not default: has draw items');
+    return false;
+  }
+  
+  // Select menus and simple toggles
+  if (controlState.colorSpace !== 'RGB') {
+    console.log('Not default: colorSpace is', controlState.colorSpace);
+    return false;
+  }
+
+  if (controlState.grayscaleAmount !== 0) {
+    console.log('Not default: grayscaleAmount is', controlState.grayscaleAmount);
+    return false;
+  }
+  
+  if (controlState.rotate !== 0) {
+    console.log('Not default: rotate is', controlState.rotate);
+    return false;
+  }
+  
+  if (controlState.scale !== 1) {
+    console.log('Not default: scale is', controlState.scale);
+    return false;
+  }
+
+  if (controlState.translateX !== 0 || controlState.translateY !== 0) {
+    console.log('Not default: translateX/Y are', controlState.translateX, controlState.translateY);
+    return false;
+  }
+
+  if (controlState.scaleInterpolation !== 'linear') {
+    console.log('Not default: scaleInterpolation is', controlState.scaleInterpolation);
+    return false;
+  }
+  
+  if (controlState.brightness !== 0) {
+    console.log('Not default: brightness is', controlState.brightness);
+    return false;
+  }
+  
+  if (controlState.blendAlpha !== 0) {
+    console.log('Not default: blendAlpha is', controlState.blendAlpha);
+    return false;
+  }
+  
+  // Check crop
+  if (controlState.crop.x !== 0 || controlState.crop.y !== 0 || controlState.crop.w !== 0 || controlState.crop.h !== 0) {
+    console.log('Not default: crop is not zero');
+    return false;
+  }
+  
+  // Blur and basic filters
+  if (controlState.blur && (controlState.blur.method && controlState.blur.method !== 'gaussian')) {
+    console.log('Not default: blur.method is', controlState.blur.method);
+    return false;
+  }
+  if (controlState.blur && controlState.blur.ksize !== 3) {
+    console.log('Not default: blur.ksize is', controlState.blur.ksize);
+    return false;
+  }
+
+  // Check color boost
+  if (controlState.colorBoost.saturation !== 0 || 
+      controlState.colorBoost.hueShift !== 0 || 
+      controlState.colorBoost.vibrance !== 1 ||
+      controlState.colorBoost.contrast !== 0 || 
+      controlState.colorBoost.brightness !== 0) {
+    console.log('Not default: color boost changed');
+    return false;
+  }
+  
+  console.log('All controls are in default state');
+  return true;
+});
 
 // Override resetAll to also reset user interaction flag
 const handleResetAll = () => {
@@ -321,14 +472,6 @@ const handleResetAll = () => {
   hasControlsChanged.value = false;
   console.log('Emitting controls-reset event');
   emit('controls-reset');
-  
-  // Call parent reset method
-  setTimeout(() => {
-    console.log('Calling parent reset method directly');
-    if (window.parentApp) {
-      window.parentApp.handleControlsReset();
-    }
-  }, 50);
 };
 
 const emit = defineEmits(['user-interaction', 'controls-reset']);
@@ -382,13 +525,20 @@ const isCropActive = ref(false);
 
 const onCropToggle = (value) => {
   isCropActive.value = value;
-  if (!value) {
-    // Reset crop when disabled
-    controlState.crop = { x: 0, y: 0, w: 0, h: 0 };
-  } else {
-    // Set a default crop when enabled
-    controlState.crop = { x: 20, y: 20, w: 40, h: 40 };
-  }
+  
+  // Trigger processing first
+  emit('user-interaction');
+  
+  // Then update crop values after a small delay to ensure processing starts
+  setTimeout(() => {
+    if (!value) {
+      // When disabling crop, reset crop values
+      controlState.crop = { x: 0, y: 0, w: 0, h: 0 };
+    } else {
+      // Set a default crop when enabled
+      controlState.crop = { x: 20, y: 20, w: 40, h: 40 };
+    }
+  }, 50);
 };
 
 const applyAspectRatio = (aspect) => {
@@ -415,10 +565,14 @@ const applyAspectRatio = (aspect) => {
   }
   
   controlState.crop.h = Math.max(1, Math.min(100, newHeight));
+  // Trigger processing when aspect ratio is applied
+  emit('user-interaction');
 };
 
 const resetCrop = () => {
   controlState.crop = { x: 0, y: 0, w: 0, h: 0 };
+  // Trigger processing when crop is reset
+  emit('user-interaction');
 };
 
 // Reset controls changed flag when new file is uploaded
@@ -469,6 +623,39 @@ watch(() => controlState.crop, (newCrop) => {
 </script>
 
 <style scoped>
+.control-panel-wrapper {
+  position: relative;
+}
+.control-overlay {
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.loading-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.controls-disabled {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.controls-disabled .v-slider,
+.controls-disabled .v-select,
+.controls-disabled .v-text-field,
+.controls-disabled .v-switch,
+.controls-disabled .v-checkbox,
+.controls-disabled .v-btn {
+  pointer-events: none;
+  opacity: 0.5;
+}
+
 .control-panels-container {
   overflow-y: auto;
 }
@@ -497,14 +684,13 @@ watch(() => controlState.crop, (newCrop) => {
 }
 
 /* Color picker styling */
-.color-picker-compact {
+.color-input {
+  width: 50px;
+  height: 40px;
+  border: none;
   border-radius: 8px;
-  overflow: hidden;
+  cursor: pointer;
 }
-
-        .color-picker-compact .v-color-picker__canvas {
-          border-radius: 8px;
-        }
 
         /* Control panels styling */
         .control-panels .v-expansion-panel {

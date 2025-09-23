@@ -18,14 +18,22 @@
     <v-col cols="12" md="6" class="pa-2">
       <div class="image-container">
         <h3 class="text-overline">Processed</h3>
-        <v-img :src="processedSrc" aspect-ratio="1" class="image-preview" contain></v-img>
+        <div class="image-preview-container">
+          <v-img :src="processedSrc" aspect-ratio="1" class="image-preview" contain></v-img>
+          <div v-if="isLoading" class="image-loading-overlay">
+            <div class="d-flex flex-column align-center justify-center h-100">
+              <div class="text-h6 mb-4 text-white">PROCESSING</div>
+              <v-progress-circular indeterminate size="48" color="primary"></v-progress-circular>
+            </div>
+          </div>
+        </div>
       </div>
     </v-col>
   </v-row>
 </template>
 
 <script setup>
-import { defineProps, defineEmits, computed } from 'vue';
+import { defineProps, defineEmits, computed, ref, watch } from 'vue';
 import ImageCrop from './ImageCrop.vue';
 
 const props = defineProps({
@@ -45,6 +53,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  isLoading: {
+    type: Boolean,
+    default: false,
+  }
 });
 
 const emit = defineEmits(['update:cropData']);
@@ -52,6 +64,7 @@ const emit = defineEmits(['update:cropData']);
 const updateCropData = (newCropData) => {
   emit('update:cropData', newCropData);
 };
+
 </script>
 
 <style scoped>
@@ -62,10 +75,27 @@ const updateCropData = (newCropData) => {
   width: 100%;
 }
 
-.image-preview {
-  border-radius: 8px;
+.image-preview-container {
+  position: relative;
   flex-grow: 1;
   min-height: 0; /* Important for flexbox sizing */
+}
+
+.image-preview {
+  border-radius: 8px;
+  width: 100%;
+  height: 100%;
+}
+
+.image-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  border-radius: 8px;
+  z-index: 10;
 }
 
 h3.text-overline {
@@ -73,4 +103,5 @@ h3.text-overline {
   margin-bottom: 8px;
   color: #BDBDBD; /* Lighter grey for better visibility */
 }
+
 </style>

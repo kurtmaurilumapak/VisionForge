@@ -1,6 +1,6 @@
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 import cv2
 import numpy as np
 from PIL import Image
@@ -9,6 +9,7 @@ import base64
 import json
 from typing import Optional, List, Dict, Any
 import uvicorn
+import zipfile
 
 from services.image_processor import ImageProcessor
 from models.control_models import ControlState
@@ -141,3 +142,54 @@ async def process_image_base64(
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host=HOST, port=PORT, reload=RELOAD)
+
+# -------- ZIP Creation Endpoint --------
+@app.post("/zip-images")
+async def zip_images(payload: Dict[str, Any]):
+    """
+    Accepts JSON payload with list of files to zip.
+    Expected payload format:
+    {
+      "files": [
+        {"name": "image1.png", "dataUrl": "data:image/png;base64,...."},
+        ...
+      ]
+    }
+    Returns: application/zip stream
+    """
+    try:
+        files = payload.get("files", [])
+        if not isinstance(files, list) or len(files) == 0:
+            raise HTTPException(status_code=400, detail="No files provided")
+
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zipf:
+            for idx, f in enumerate(files):
+                name = f.get("name") or f"image_{idx + 1}.png"
+                data_url = f.get("dataUrl")
+                if not data_url or not isinstance(data_url, str):
+                    continue
+                try:
+                    # Support data URLs (e.g., data:image/png;base64,....)
+                    if data_url.startswith("data:image"):
+                        base64_part = data_url.split(",", 1)[1]
+                    else:
+                        base64_part = data_url
+                    raw = base64.b64decode(base64_part)
+                except Exception:
+                    # Skip invalid entries
+                    continue
+                # Ensure extension
+                if "." not in name:
+                    name = name + ".png"
+                zipf.writestr(name, raw)
+
+        zip_buffer.seek(0)
+        headers = {
+            "Content-Disposition": f"attachment; filename=visionforge_results.zip"
+        }
+        return StreamingResponse(zip_buffer, media_type="application/zip", headers=headers)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create ZIP: {str(e)}")

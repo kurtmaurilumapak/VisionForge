@@ -77,7 +77,8 @@ class ImageProcessor:
         
         # Cropping
         crop = controls.get('crop', {})
-        if crop and isinstance(crop, dict):
+        is_crop_active = controls.get('isCropActive', False)
+        if crop and isinstance(crop, dict) and is_crop_active:
             crop_w = crop.get('w', 0)
             crop_h = crop.get('h', 0)
             crop_x = crop.get('x', 0)
@@ -272,28 +273,64 @@ class ImageProcessor:
     
     def _apply_draw_operations(self, controls: Dict[str, Any]):
         """Apply drawing operations"""
-        draw_items = controls.get('drawItems', [])
-        
-        for item in draw_items:
-            color = self._hex_to_bgr(item.get('color', '#FF0000'))
-            thickness = item.get('thickness', 2)
+        try:
+            draw_items = controls.get('drawItems', [])
+            print(f"Draw operations - Found {len(draw_items)} draw items")
             
-            if item.get('type') == 'rect' and item.get('xywh'):
-                x, y, w, h = item['xywh']
-                cv2.rectangle(self.processed_image, (x, y), (x+w, y+h), color, thickness)
+            if not isinstance(draw_items, list):
+                print(f"Warning: drawItems is not a list, got {type(draw_items)}")
+                return
             
-            elif item.get('type') == 'circle' and item.get('xyr'):
-                x, y, r = item['xyr']
-                cv2.circle(self.processed_image, (x, y), r, color, thickness)
-            
-            elif item.get('type') == 'line' and item.get('xyxy'):
-                x1, y1, x2, y2 = item['xyxy']
-                cv2.line(self.processed_image, (x1, y1), (x2, y2), color, thickness)
-            
-            elif item.get('type') == 'text' and item.get('text'):
-                x, y = item.get('xy', [20, 20])
-                scale = item.get('scale', 1.0)
-                cv2.putText(self.processed_image, item['text'], (x, y), cv2.FONT_HERSHEY_SIMPLEX, scale, color, thickness)
+            for i, item in enumerate(draw_items):
+                try:
+                    print(f"Draw item {i}: {item}")
+                    
+                    if not isinstance(item, dict):
+                        print(f"Warning: Draw item {i} is not a dict, skipping")
+                        continue
+                    
+                    color = self._hex_to_bgr(item.get('color', '#FF0000'))
+                    thickness = int(item.get('thickness', 2))
+                    
+                    if item.get('type') == 'rect' and item.get('xywh'):
+                        x, y, w, h = item['xywh']
+                        if len(item['xywh']) == 4 and all(isinstance(x, (int, float)) for x in item['xywh']):
+                            cv2.rectangle(self.processed_image, (int(x), int(y)), (int(x+w), int(y+h)), color, thickness)
+                        else:
+                            print(f"Warning: Invalid xywh for rect: {item['xywh']}")
+                    
+                    elif item.get('type') == 'circle' and item.get('xyr'):
+                        x, y, r = item['xyr']
+                        if len(item['xyr']) == 3 and all(isinstance(x, (int, float)) for x in item['xyr']):
+                            cv2.circle(self.processed_image, (int(x), int(y)), int(r), color, thickness)
+                        else:
+                            print(f"Warning: Invalid xyr for circle: {item['xyr']}")
+                    
+                    elif item.get('type') == 'line' and item.get('xyxy'):
+                        x1, y1, x2, y2 = item['xyxy']
+                        if len(item['xyxy']) == 4 and all(isinstance(x, (int, float)) for x in item['xyxy']):
+                            cv2.line(self.processed_image, (int(x1), int(y1)), (int(x2), int(y2)), color, thickness)
+                        else:
+                            print(f"Warning: Invalid xyxy for line: {item['xyxy']}")
+                    
+                    elif item.get('type') == 'text' and item.get('text'):
+                        x, y = item.get('xy', [20, 20])
+                        scale = float(item.get('scale', 1.0))
+                        if len(item.get('xy', [])) == 2 and all(isinstance(x, (int, float)) for x in item.get('xy', [])):
+                            cv2.putText(self.processed_image, str(item['text']), (int(x), int(y)), cv2.FONT_HERSHEY_SIMPLEX, scale, color, thickness)
+                        else:
+                            print(f"Warning: Invalid xy for text: {item.get('xy', [])}")
+                    else:
+                        print(f"Warning: Unknown or incomplete draw item type: {item.get('type')}")
+                        
+                except Exception as e:
+                    print(f"Error processing draw item {i}: {e}")
+                    continue
+                    
+        except Exception as e:
+            print(f"Error in _apply_draw_operations: {e}")
+            import traceback
+            traceback.print_exc()
     
     def _apply_final_operations(self, controls: Dict[str, Any]):
         """Apply final operations like brightness and blending"""

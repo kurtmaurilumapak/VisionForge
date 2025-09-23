@@ -78,21 +78,20 @@ export function useControls() {
 
   const addDrawItem = (type) => {
     let newItem;
-    const colors = ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF'];
-    const randomColor = colors[Math.floor(Math.random() * colors.length)];
+    const defaultColor = '#FF0000'; // Default red color for all shapes
     
     switch(type) {
         case 'rect':
-            newItem = { type: 'rect', xywh: [10, 10, 50, 50], color: randomColor, thickness: 2 };
+            newItem = { type: 'rect', xywh: [10, 10, 50, 50], color: defaultColor, thickness: 2 };
             break;
         case 'circle':
-            newItem = { type: 'circle', xyr: [50, 50, 25], color: randomColor, thickness: 2 };
+            newItem = { type: 'circle', xyr: [50, 50, 25], color: defaultColor, thickness: 2 };
             break;
         case 'line':
-            newItem = { type: 'line', xyxy: [10, 10, 100, 100], color: randomColor, thickness: 2 };
+            newItem = { type: 'line', xyxy: [10, 10, 100, 100], color: defaultColor, thickness: 2 };
             break;
         case 'text':
-            newItem = { type: 'text', xy: [20, 20], text: 'Hello', scale: 1, color: randomColor, thickness: 2 };
+            newItem = { type: 'text', xy: [20, 20], text: 'Hello', scale: 1, color: defaultColor, thickness: 2 };
             break;
     }
     controlState.drawItems.push(newItem);

@@ -38,12 +38,6 @@
             </v-btn>
           </template>
           <v-list>
-            <v-list-item @click="downloadAll">
-              <v-list-item-title>
-                <v-icon left>mdi-download</v-icon>
-                Download All Images
-              </v-list-item-title>
-            </v-list-item>
             <v-list-item @click="downloadAsZip">
               <v-list-item-title>
                 <v-icon left>mdi-folder-zip</v-icon>
@@ -67,7 +61,8 @@
         v-for="(image, index) in images" 
         :key="index"
         class="image-card"
-        style="background: transparent; border: 1px solid rgba(255, 255, 255, 0.12);"
+        style="background: transparent; border: 1px solid rgba(255, 255, 255, 0.12); cursor: pointer;"
+        @click="openPreview(image)"
       >
         <div class="image-preview">
           <img :src="image.preview" :alt="image.name" />
@@ -103,15 +98,57 @@
 
 
     <!-- Results Summary -->
-    <v-alert 
-      v-if="!isProcessing && hasProcessedImages"
-      type="success" 
-      variant="tonal" 
-      class="mt-4"
+    <div 
+      v-if="showResultBanner"
+      class="result-banner mt-4 d-flex align-center justify-space-between"
     >
-      <span>Batch processing completed! {{ processedCount }} images processed successfully.</span>
-    </v-alert>
+      <div class="d-flex align-center">
+        <v-icon color="success" class="mr-2">mdi-check-circle</v-icon>
+        <span class="text-body-2">Batch processing completed! {{ processedCount }} images processed successfully.</span>
+      </div>
+      <div class="d-flex ga-2">
+        <v-btn size="small" variant="tonal" color="success" @click="downloadAsZip">
+          <v-icon left>mdi-folder-zip</v-icon>
+          ZIP
+        </v-btn>
+        <v-btn size="small" variant="text" color="white" @click="exportBatchPDF">
+          <v-icon left>mdi-file-pdf-box</v-icon>
+          PDF
+        </v-btn>
+      </div>
+    </div>
   </div>
+
+  <!-- Preview Dialog -->
+  <v-dialog v-model="previewDialog" max-width="1000" persistent>
+    <v-card color="black" elevation="8" style="border: 1px solid rgba(255,255,255,0.12)">
+      <v-card-title class="d-flex align-center">
+        <span class="text-subtitle-1">Preview: {{ selectedImage?.name || '' }}</span>
+        <v-spacer></v-spacer>
+        <v-btn icon variant="text" @click="previewDialog=false"><v-icon>mdi-close</v-icon></v-btn>
+      </v-card-title>
+      <v-card-text>
+        <div class="d-flex ga-4 flex-wrap">
+          <div class="preview-pane">
+            <div class="text-caption mb-2">Original</div>
+            <div class="preview-box">
+              <img v-if="selectedImage" :src="selectedImage.preview" class="preview-img" alt="original" />
+            </div>
+          </div>
+          <div class="preview-pane">
+            <div class="text-caption mb-2">Processed</div>
+            <div class="preview-box">
+              <img v-if="selectedImage" :src="selectedImage.processedData" class="preview-img" alt="processed" />
+            </div>
+          </div>
+        </div>
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer></v-spacer>
+        <v-btn variant="tonal" color="primary" @click="previewDialog=false">Close</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
 
 <script setup>
@@ -140,6 +177,20 @@ const progress = ref(0);
 const hasImages = computed(() => props.images.length > 0);
 const hasProcessedImages = computed(() => props.images.some(img => img.status === 'processed'));
 const processedCount = computed(() => props.images.filter(img => img.status === 'processed').length);
+
+// Auto-dismissable result banner
+const showResultBanner = ref(false);
+const bannerTimeout = ref(null);
+// Preview dialog state
+const previewDialog = ref(false);
+const selectedImage = ref(null);
+
+const openPreview = (image) => {
+  if (image && image.status === 'processed' && image.processedData) {
+    selectedImage.value = image;
+    previewDialog.value = true;
+  }
+};
 
 const startBatchProcessing = async () => {
   if (!hasImages.value) return;
@@ -187,6 +238,12 @@ const startBatchProcessing = async () => {
     
     if (!isCancelled.value) {
       emit('processing-complete', props.images);
+      // Show completion banner for 5 seconds
+      showResultBanner.value = true;
+      clearTimeout(bannerTimeout.value);
+      bannerTimeout.value = setTimeout(() => {
+        showResultBanner.value = false;
+      }, 5000);
     }
   } finally {
     isProcessing.value = false;
@@ -228,25 +285,31 @@ const processImage = async (imageData) => {
 };
 
 
-const downloadAll = () => {
+const downloadAsZip = async () => {
   const processedImages = props.images.filter(img => img.status === 'processed' && img.processedData);
-  
-  if (processedImages.length === 0) return;
-  
-  // Download individual files
-  processedImages.forEach((image, index) => {
-    const link = document.createElement('a');
-    link.href = image.processedData;
-    link.download = `processed_${image.name}`;
-    link.click();
-  });
-};
+  if (processedImages.length === 0) {
+    alert('No processed images to include in ZIP');
+    return;
+  }
 
-const downloadAsZip = () => {
-  // For now, just download all images individually
-  // In a real implementation, you'd use a library like JSZip
-  downloadAll();
-  alert('ZIP download not implemented yet. Downloading individual files instead.');
+  try {
+    const files = processedImages.map((img) => ({
+      name: `processed_${img.name}`,
+      dataUrl: img.processedData
+    }));
+    const zipBlob = await apiService.zipImages(files);
+    const url = URL.createObjectURL(zipBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `visionforge_results_${new Date().toISOString().split('T')[0]}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    console.error('ZIP download failed:', e);
+    alert('Failed to create ZIP. Please try again.');
+  }
 };
 
 const exportBatchPDF = async () => {
@@ -589,5 +652,35 @@ watch(() => props.controls, () => {
   font-size: 0.75rem;
   line-height: 1.2;
   word-break: break-all;
+}
+
+.result-banner {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(180deg, rgba(46, 125, 50, 0.08), rgba(46, 125, 50, 0.04));
+  padding: 12px 16px;
+  border-radius: 8px;
+}
+
+.preview-pane {
+  min-width: 420px;
+  flex: 1 1 420px;
+}
+
+.preview-box {
+  width: 100%;
+  aspect-ratio: 16/9;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.preview-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
 }
 </style>

@@ -39,7 +39,7 @@
   "build": {
     "appId": "com.visionforge.imageeditor",
     "productName": "VisionForge Image Editor",
-    "icon": "public/appicon.png",
+    "icon": "src/assets/visionforge_logo.png",
     "directories": {
       "output": "dist-electron"
     },
@@ -56,16 +56,16 @@
     "mac": {
       "category": "public.app-category.graphics-design",
       "target": "dmg",
-      "icon": "public/appicon.png"
+      "icon": "src/assets/visionforge_logo.png"
     },
     "win": {
       "target": "nsis",
-      "icon": "public/appicon.ico",
+      "icon": "src/assets/visionforge_logo.ico",
       "sign": false
     },
     "linux": {
       "target": "AppImage",
-      "icon": "public/appicon.png"
+      "icon": "src/assets/visionforge_logo.png"
     }
   }
 }

@@ -94,6 +94,28 @@ class ApiService {
       throw error;
     }
   }
+
+  async zipImages(files) {
+    try {
+      const response = await fetch(`${this.baseURL}/zip-images`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ files })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      return blob;
+    } catch (error) {
+      console.error('Error creating ZIP:', error);
+      throw error;
+    }
+  }
 }
 
 export default new ApiService();

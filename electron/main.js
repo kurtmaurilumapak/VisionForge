@@ -57,7 +57,7 @@ function createWindow() {
       enableRemoteModule: false,
       preload: path.join(__dirname, 'preload.js')
     },
-    icon: path.join(__dirname, '../public/appicon.ico'),
+    icon: path.join(__dirname, '../src/assets/visionforge_logo.ico'),
     iconSize: 256,
     titleBarStyle: 'default',
     show: false,

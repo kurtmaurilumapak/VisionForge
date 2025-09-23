@@ -3,7 +3,7 @@
     <v-app-bar app color="black" elevation="0" style="border-bottom: 1px solid rgba(255, 255, 255, 0.12);">
       <v-app-bar-nav-icon v-if="!$vuetify.display.lgAndUp" @click.stop="drawer = !drawer"></v-app-bar-nav-icon>
       <div class="d-flex align-center">
-        <img src="/appicon.png" alt="VisionForge" style="height: 64px; width: auto;" />
+        <img src="/src/assets/visionforge_logo.ico" alt="VisionForge" style="height: 64px; width: auto;" />
         <v-toolbar-title class="font-weight-bold">VisionForge</v-toolbar-title>
       </div>
       <v-spacer></v-spacer>
@@ -52,7 +52,14 @@
     />
 
     <v-navigation-drawer v-if="imageSrc || isBatchMode" app :permanent="$vuetify.display.lgAndUp" v-model="drawer" color="black" :width="400">
-      <ControlPanel ref="controlPanel" :has-image="!!imageSrc" @user-interaction="markUserInteraction" @controls-reset="handleControlsReset" />
+      <ControlPanel 
+        ref="controlPanel" 
+        :has-image="!!imageSrc" 
+        :disabled="isProcessing" 
+        :loading="false"
+        @user-interaction="markUserInteraction" 
+        @controls-reset="handleControlsReset"
+      />
     </v-navigation-drawer>
 
     <v-main style="background-color: black;">
@@ -75,13 +82,10 @@
                 :original-src="imageSrc" 
                 :processed-src="processedImageSrc"
                 :crop-data="controlState.crop"
-                :is-crop-active="false"
+                :is-crop-active="isCropActive"
+                :is-loading="!isBatchMode && isProcessing"
                 @update:crop-data="updateCropData"
               />
-              <v-overlay v-if="isProcessing" class="align-center justify-center">
-                <v-progress-circular indeterminate size="64" color="primary"></v-progress-circular>
-                <div class="text-h6 mt-4">Processing image...</div>
-              </v-overlay>
             </div>
         </v-sheet>
       </div>
@@ -112,15 +116,18 @@ const isBatchMode = ref(false);
 const controlPanel = ref(null);
 const appRef = ref(null);
 const isProcessing = ref(false);
+const hasPendingControlChange = ref(false);
 const currentFile = ref(null);
 const isCropActive = ref(false);
 const hasUserInteracted = ref(false);
 const resetTriggered = ref(0);
+const isResetting = ref(false);
+const hasChanges = ref(false);
 
 // Export button state
 const canExport = computed(() => {
-  const can = imageSrc.value && hasUserInteracted.value;
-  console.log('canExport:', can, 'imageSrc:', !!imageSrc.value, 'hasUserInteracted:', hasUserInteracted.value);
+  const can = imageSrc.value && hasChanges.value;
+  console.log('canExport computed:', can, 'imageSrc:', !!imageSrc.value, 'hasChanges:', hasChanges.value, 'isResetting:', isResetting.value);
   return can;
 });
 
@@ -141,6 +148,7 @@ const onFileUploaded = (file) => {
   if (file) {
     currentFile.value = file;
     hasUserInteracted.value = false; // Reset user interaction flag
+    hasChanges.value = false; // Reset changes flag
     isBatchMode.value = false; // Switch to single image mode
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -160,6 +168,7 @@ const onBatchFilesUploaded = (files) => {
     batchImages.value = [];
     isBatchMode.value = true;
     hasUserInteracted.value = false; // Reset user interaction flag
+    hasChanges.value = false; // Reset changes flag
     
     // Process files sequentially to ensure proper loading
     const processFiles = async () => {
@@ -214,6 +223,7 @@ const switchToSingleMode = () => {
   imageSrc.value = null;
   processedImageSrc.value = null;
   hasUserInteracted.value = false;
+  hasChanges.value = false;
 };
 
 // Watch for control changes and process image
@@ -222,26 +232,59 @@ watch(controlState, async () => {
   console.log('Image src exists:', !!imageSrc.value);
   console.log('Current file exists:', !!currentFile.value);
   console.log('User has interacted:', hasUserInteracted.value);
+  console.log('isProcessing:', isProcessing.value);
   
+  // If any control deviates from defaults but the flag somehow ended up false
+  // (e.g., after exporting then resetting), restore it to ensure processing resumes
+  const isAtDefaultNow = checkIfAtDefaultState();
+  if (!isAtDefaultNow && !hasUserInteracted.value) {
+    console.log('Detected control changes while hasUserInteracted=false -> setting to true');
+    hasUserInteracted.value = true;
+  }
+
   if (imageSrc.value && currentFile.value && hasUserInteracted.value) {
+    // If already processing, queue the latest change and skip immediate call
+    if (isProcessing.value) {
+      console.log('Processing in progress. Queuing latest control change.');
+      hasPendingControlChange.value = true;
+      return;
+    }
+
     console.log('Triggering image processing...');
-    // Add a small delay to prevent too many rapid requests
     clearTimeout(processTimeout.value);
     processTimeout.value = setTimeout(async () => {
       await processImage();
     }, 300);
+  } else {
+    console.log('Not processing because:', {
+      hasImageSrc: !!imageSrc.value,
+      hasCurrentFile: !!currentFile.value,
+      hasUserInteracted: hasUserInteracted.value
+    });
   }
 }, { deep: true });
 
 // Watch for reset (when all controls are at default values)
 watch(controlState, () => {
   const isAtDefault = checkIfAtDefaultState();
-  if (isAtDefault && hasUserInteracted.value) {
-    console.log('Detected reset - controls are at default values');
-    hasUserInteracted.value = false;
-    if (imageSrc.value) {
-      processedImageSrc.value = imageSrc.value;
-    }
+  console.log('Control state watcher - isAtDefault:', isAtDefault, 'hasUserInteracted:', hasUserInteracted.value);
+  
+  // Don't reset hasUserInteracted if crop is being toggled off
+  // Check if this is a crop toggle by looking at the crop values
+  const isCropToggle = controlState.crop.x === 0 && controlState.crop.y === 0 && 
+                       controlState.crop.w === 0 && controlState.crop.h === 0 && 
+                       !isCropActive.value;
+  
+  if (isAtDefault && hasUserInteracted.value && !isCropToggle) {
+    console.log('Detected reset - controls are at default values, triggering processing with loading indicator');
+    // Don't reset hasUserInteracted - let it trigger processing with loading indicator
+    // The processImage function will handle showing loading and returning to original
+  } else if (isCropToggle) {
+    console.log('Crop toggle detected - not resetting hasUserInteracted');
+  } else if (!isAtDefault && !hasUserInteracted.value) {
+    // Safety: if we are not at default but flag is false (e.g., after export->reset sequencing), enable it
+    console.log('Safety toggle: not default but hasUserInteracted=false. Enabling.');
+    hasUserInteracted.value = true;
   }
 }, { deep: true });
 
@@ -257,17 +300,48 @@ const processImage = async () => {
   // Check if all controls are at their default values
   const isAtDefaultState = checkIfAtDefaultState();
   console.log('Is at default state:', isAtDefaultState);
-  if (isAtDefaultState) {
+  
+  // Don't skip processing if crop is being toggled off (isCropActive is false but crop values are zero)
+  const isCropToggleOff = !isCropActive.value && controlState.crop.x === 0 && 
+                          controlState.crop.y === 0 && controlState.crop.w === 0 && 
+                          controlState.crop.h === 0;
+  
+  if (isAtDefaultState && !isCropToggleOff) {
     console.log('Returning to original image - all controls at default');
-    processedImageSrc.value = imageSrc.value; // Return to original
+    // Show loading indicator even when returning to original
+    isProcessing.value = true;
+    
+    // Simulate processing time to show loading indicator
+    setTimeout(() => {
+      console.log('Reset completion - before setting flags');
+      console.log('hasChanges before:', hasChanges.value, 'canExport before:', canExport.value);
+      processedImageSrc.value = imageSrc.value; // Return to original
+      isProcessing.value = false;
+      isResetting.value = false; // Clear resetting flag
+      hasChanges.value = false; // No changes since we're back to original
+      hasUserInteracted.value = false; // Reset user interaction flag
+      console.log('Reset completed - hasChanges set to false, canExport should be false');
+      console.log('hasChanges after:', hasChanges.value, 'canExport after:', canExport.value);
+    }, 500); // 500ms delay to show loading indicator
     return;
   }
   
+  if (isCropToggleOff) {
+    console.log('Crop toggle off detected - processing anyway');
+  }
+  
   console.log('Processing image with current controls:', controlState);
+  console.log('Draw items:', controlState.drawItems);
+  console.log('Setting isProcessing to true');
   isProcessing.value = true;
   try {
     console.log('Calling API service...');
-    const result = await apiService.processImage(imageSrc.value, controlState);
+    // Include crop active state in controls
+    const controlsWithCropState = {
+      ...controlState,
+      isCropActive: isCropActive.value
+    };
+    const result = await apiService.processImage(imageSrc.value, controlsWithCropState);
     console.log('API result:', result);
     if (result.success) {
       console.log('Setting processed image');
@@ -280,7 +354,24 @@ const processImage = async () => {
     // Fallback to original image if processing fails
     processedImageSrc.value = imageSrc.value;
   } finally {
+    console.log('Setting isProcessing to false');
     isProcessing.value = false;
+    isResetting.value = false; // Clear resetting flag when processing completes
+    
+    // If we're at default state after processing, set hasChanges to false
+    const isAtDefaultAfterProcessing = checkIfAtDefaultState();
+    if (isAtDefaultAfterProcessing) {
+      console.log('Processing completed - controls are at default, setting hasChanges to false');
+      hasChanges.value = false;
+      hasUserInteracted.value = false;
+    }
+    
+    // If there were changes while processing, process once more with latest state
+    if (hasPendingControlChange.value && imageSrc.value && currentFile.value && hasUserInteracted.value) {
+      console.log('Detected pending control change. Re-processing with latest controls.');
+      hasPendingControlChange.value = false;
+      await processImage();
+    }
   }
 };
 
@@ -323,20 +414,26 @@ const updateCropData = (newCropData) => {
   hasUserInteracted.value = true; // Mark that user has interacted
 };
 
+
+
 const markUserInteraction = () => {
   console.log('User interaction detected, setting hasUserInteracted to true');
+  console.log('Current hasUserInteracted before:', hasUserInteracted.value);
   hasUserInteracted.value = true;
+  hasChanges.value = true; // Mark that there are changes to export
+  console.log('Current hasUserInteracted after:', hasUserInteracted.value);
+  console.log('hasChanges set to true');
 };
 
 const handleControlsReset = () => {
-  console.log('Controls reset received, setting hasUserInteracted to false');
-  hasUserInteracted.value = false;
+  console.log('Controls reset received, triggering processing with loading indicator');
+  console.log('Before reset - hasChanges:', hasChanges.value, 'canExport:', canExport.value);
+  isResetting.value = true; // Set resetting flag to gray out export button
+  hasUserInteracted.value = true; // Set to true to trigger processing
   resetTriggered.value++;
-  // Reset processed image to original
-  if (imageSrc.value) {
-    console.log('Resetting processed image to original');
-    processedImageSrc.value = imageSrc.value;
-  }
+  console.log('After setting reset flags - hasChanges:', hasChanges.value, 'canExport:', canExport.value);
+  // The processing will handle showing loading indicator and returning to original
+  // After processing, hasUserInteracted will be set to false in the processImage function
 };
 
 // Expose methods to global scope for direct access
@@ -354,6 +451,18 @@ watch(resetTriggered, (newValue) => {
   console.log('Reset trigger changed:', newValue);
   console.log('hasUserInteracted after reset:', hasUserInteracted.value);
   console.log('canExport after reset:', canExport.value);
+});
+
+// Watch for hasUserInteracted changes
+watch(hasUserInteracted, (newValue, oldValue) => {
+  console.log('hasUserInteracted changed from', oldValue, 'to', newValue);
+  console.log('canExport is now:', canExport.value);
+});
+
+// Watch for hasChanges changes
+watch(hasChanges, (newValue, oldValue) => {
+  console.log('hasChanges changed from', oldValue, 'to', newValue);
+  console.log('canExport is now:', canExport.value);
 });
 
 // Export functions
