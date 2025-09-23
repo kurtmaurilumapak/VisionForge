@@ -53,6 +53,12 @@
       "electron/**/*",
       "node_modules/**/*"
     ],
+    "extraResources": [
+      {
+        "from": "backend/dist_backend",
+        "to": "backend"
+      }
+    ],
     "mac": {
       "category": "public.app-category.graphics-design",
       "target": "dmg",

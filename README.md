@@ -199,12 +199,17 @@ npm run preview           # Preview built app
 
 ### Building for Distribution
 
-1. **Build the Application**
+1. **Bundle Backend for Machines without Python**
+   - Build a standalone backend executable with PyInstaller first (see `backend/README.md`).
+   - Place the built file into `backend/dist_backend` (Windows: `visionforge_backend.exe`).
+   - The Electron builder is configured to include this in the installer.
+
+2. **Build the Application**
    ```bash
    npm run electron:dist
    ```
 
-2. **Find the Executable**
+3. **Find the Executable**
    - Windows: `dist-electron/win-unpacked/VisionForge Image Editor.exe`
    - macOS: `dist-electron/mac/VisionForge Image Editor.app`
    - Linux: `dist-electron/linux/VisionForge Image Editor.AppImage`

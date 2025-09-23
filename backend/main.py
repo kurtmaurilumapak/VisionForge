@@ -141,7 +141,12 @@ async def process_image_base64(
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host=HOST, port=PORT, reload=RELOAD)
+    import os
+    # Respect Electron override to avoid uvicorn reload worker that can outlive Electron
+    reload_env = os.getenv("RELOAD", str(RELOAD))
+    is_electron = os.getenv("ELECTRON") == "1"
+    reload_flag = False if is_electron else (reload_env.lower() == "true")
+    uvicorn.run("main:app", host=HOST, port=PORT, reload=reload_flag)
 
 # -------- ZIP Creation Endpoint --------
 @app.post("/zip-images")

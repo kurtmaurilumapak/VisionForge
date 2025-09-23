@@ -1,3 +1,28 @@
+Backend bundling
+
+We freeze the FastAPI backend into a standalone executable using PyInstaller.
+
+Build locally:
+
+1) Create a venv and install deps:
+   python -m venv .venv
+   .venv\\Scripts\\pip install -r requirements.txt
+   .venv\\Scripts\\pip install pyinstaller python-dotenv
+
+2) Build the executable (Windows example):
+   .venv\\Scripts\\pyinstaller --noconfirm --onefile --name visionforge_backend \
+     --add-data "models;models" \
+     --add-data "services;services" \
+     --add-data "config.py;." \
+     --add-data "main.py;." \
+     start.py
+
+3) Copy the result into backend/dist_backend:
+   mkdir -p dist_backend
+   copy dist\\visionforge_backend.exe dist_backend\\
+
+Electron builder is configured to package everything inside backend/dist_backend to Resources/backend/.
+
 # VisionForge Backend API
 
 FastAPI backend service for VisionForge image processing application.
