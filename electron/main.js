@@ -186,12 +186,20 @@ function stopBackend() {
       if (process.platform === 'win32') {
         // Kill process tree on Windows
         const { spawn } = require('child_process');
-        spawn('taskkill', ['/PID', String(pid), '/T', '/F']);
+        const taskkill = spawn('taskkill', ['/PID', String(pid), '/T', '/F'], { shell: true });
+        taskkill.on('error', (err) => {
+          console.log('taskkill not available, using process.kill instead:', err.message);
+          try {
+            process.kill(pid, 'SIGKILL');
+          } catch (killErr) {
+            console.log('process.kill also failed:', killErr.message);
+          }
+        });
       } else {
         process.kill(pid, 'SIGKILL');
       }
-    } catch (_) {
-      // ignore
+    } catch (err) {
+      console.log('Force kill failed:', err.message);
     }
   }
 
@@ -224,8 +232,13 @@ function stopBackend() {
   if (process.platform === 'win32') {
     try {
       const { spawn } = require('child_process');
-      spawn('taskkill', ['/IM', 'visionforge_backend.exe', '/T', '/F']);
-    } catch (_) {}
+      const taskkill = spawn('taskkill', ['/IM', 'visionforge_backend.exe', '/T', '/F'], { shell: true });
+      taskkill.on('error', (err) => {
+        console.log('taskkill by image name not available:', err.message);
+      });
+    } catch (err) {
+      console.log('Failed to kill by image name:', err.message);
+    }
   }
 
   backendProcess = null;
@@ -295,9 +308,14 @@ Please share the latest log file from:\n${logPath}\n\nThe app UI will still open
           try {
             if (BrowserWindow.getAllWindows().length === 0) {
               const { spawn } = require('child_process');
-              spawn('taskkill', ['/IM', 'visionforge_backend.exe', '/T', '/F']);
+              const taskkill = spawn('taskkill', ['/IM', 'visionforge_backend.exe', '/T', '/F'], { shell: true });
+              taskkill.on('error', (err) => {
+                console.log('Watchdog taskkill not available:', err.message);
+              });
             }
-          } catch (_) {}
+          } catch (err) {
+            console.log('Watchdog taskkill failed:', err.message);
+          }
         }, 1500);
       }
     });

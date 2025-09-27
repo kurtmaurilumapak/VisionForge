@@ -51,7 +51,12 @@ class DrawItem(BaseModel):
     type: str
     color: str = "#FF0000"
     thickness: int = 2
-    # Different properties for different shapes
+    # Universal positioning and sizing for all shapes
+    x: Optional[int] = None          # X position for all shapes
+    y: Optional[int] = None          # Y position for all shapes  
+    w: Optional[int] = None          # Width for all shapes
+    h: Optional[int] = None          # Height for all shapes
+    # Legacy properties for backward compatibility
     xywh: Optional[List[int]] = None  # For rectangles
     xyr: Optional[List[int]] = None   # For circles
     xyxy: Optional[List[int]] = None  # For lines

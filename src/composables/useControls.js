@@ -82,16 +82,42 @@ export function useControls() {
     
     switch(type) {
         case 'rect':
-            newItem = { type: 'rect', xywh: [10, 10, 50, 50], color: defaultColor, thickness: 2 };
+            newItem = { 
+              type: 'rect', 
+              x: 10, y: 10, w: 50, h: 50,  // Universal positioning
+              xywh: [10, 10, 50, 50],       // Legacy compatibility
+              color: defaultColor, 
+              thickness: 2 
+            };
             break;
         case 'circle':
-            newItem = { type: 'circle', xyr: [50, 50, 25], color: defaultColor, thickness: 2 };
+            newItem = { 
+              type: 'circle', 
+              x: 25, y: 25, w: 50, h: 50,  // Universal positioning (center-based)
+              xyr: [50, 50, 25],            // Legacy compatibility
+              color: defaultColor, 
+              thickness: 2 
+            };
             break;
         case 'line':
-            newItem = { type: 'line', xyxy: [10, 10, 100, 100], color: defaultColor, thickness: 2 };
+            newItem = { 
+              type: 'line', 
+              x: 10, y: 10, w: 90, h: 90,  // Universal positioning (bounding box)
+              xyxy: [10, 10, 100, 100],     // Legacy compatibility
+              color: defaultColor, 
+              thickness: 2 
+            };
             break;
         case 'text':
-            newItem = { type: 'text', xy: [20, 20], text: 'Hello', scale: 1, color: defaultColor, thickness: 2 };
+            newItem = { 
+              type: 'text', 
+              x: 20, y: 20, w: 100, h: 20, // Universal positioning
+              xy: [20, 20],                 // Legacy compatibility
+              text: 'Hello', 
+              scale: 1, 
+              color: defaultColor, 
+              thickness: 2 
+            };
             break;
     }
     controlState.drawItems.push(newItem);

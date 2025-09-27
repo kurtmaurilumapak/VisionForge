@@ -281,6 +281,31 @@
                                 <v-col><v-text-field v-model.number="item.xywh[3]" label="H" type="number" density="compact" hide-details ></v-text-field></v-col>
                             </v-row>
                         </div>
+                        
+                        <!-- Circle Controls -->
+                        <div v-if="item.type === 'circle'">
+                            <v-row dense>
+                                <v-col><v-text-field v-model.number="item.xyr[0]" label="Center X" type="number" density="compact" hide-details ></v-text-field></v-col>
+                                <v-col><v-text-field v-model.number="item.xyr[1]" label="Center Y" type="number" density="compact" hide-details ></v-text-field></v-col>
+                            </v-row>
+                            <v-row dense class="mt-1">
+                                <v-col><v-text-field v-model.number="item.xyr[2]" label="Radius" type="number" density="compact" hide-details ></v-text-field></v-col>
+                                <v-col></v-col>
+                            </v-row>
+                        </div>
+                        
+                        <!-- Line Controls -->
+                        <div v-if="item.type === 'line'">
+                            <v-row dense>
+                                <v-col><v-text-field v-model.number="item.xyxy[0]" label="Start X" type="number" density="compact" hide-details ></v-text-field></v-col>
+                                <v-col><v-text-field v-model.number="item.xyxy[1]" label="Start Y" type="number" density="compact" hide-details ></v-text-field></v-col>
+                            </v-row>
+                            <v-row dense class="mt-1">
+                                <v-col><v-text-field v-model.number="item.xyxy[2]" label="End X" type="number" density="compact" hide-details ></v-text-field></v-col>
+                                <v-col><v-text-field v-model.number="item.xyxy[3]" label="End Y" type="number" density="compact" hide-details ></v-text-field></v-col>
+                            </v-row>
+                        </div>
+                        
                          <!-- Text Controls -->
                         <div v-if="item.type === 'text'">
                             <v-text-field v-model="item.text" label="Text" density="compact" hide-details class="mb-2" @input="emit('user-interaction')" ></v-text-field>
